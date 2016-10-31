@@ -1,7 +1,18 @@
 const assign = require('lodash.assign');
 
-module.exports = function(opts) {
-    return function (files, metalsmith, done) {
+module.exports = (options) => {
+    const defaultOptions = {
+        handle: 'tags',
+        sortBy: 'title',
+        reverse: true,
+        template: "tags.hbt",
+        filter: file => file,
+        listName: 'tagsList',
+        getMetadata: (file, tag) => ({})
+    };
+    const opts = assign(defaultOptions, options);
+
+    return (files, metalsmith, done) => {
         meta = metalsmith.metadata();
 
         const tags = Object
@@ -9,27 +20,17 @@ module.exports = function(opts) {
             .reduce((array, key) => array.concat(
                 Object.assign({}, files[key], { key: key})
             ), [])
-            .filter(file => file.path.indexOf('amp') < 0)
-            .filter(file => file.tags)
+            .filter(options.filter)
+            .filter(file => file[opts.handle])
             .reduce((memo, file) => {
-                const tags = file.tags
-                    .split(',')
-                    .filter(tag => tag !== ' ')
-                    .filter(tag => !!tag)
-                    .map(tag => tag.trim())
-                    .map(tag => tag.toLowerCase());
+                const tags = file[opts.handle];
 
                 tags.forEach(tag => {
-                    const key = `${opts.path}/${tag}/index.html`;
-                    memo[key] = Object.assign({}, {
-                        tag: tag, posts: [], contents: '',
-                        title: tag,
-                        heroTitle: tag,
-                        type: 'website',
-                        description: 'Articles related to ' + tag,
-                        hero: `${tag}.png`,
-                        path: `tags/${tag}`
-                    }, memo[key], opts.yaml);
+                    const key = `${opts.handle}/${tag}/index.html`;
+                    const tagDefaults = { tag: tag, posts: [], contents: '', template: opts.template };
+                    const tagMetadata = opts.getMetadata(file, tag);
+                    
+                    memo[key] = Object.assign({}, tagMetadata, tagDefaults, memo[key]);
                     memo[key].posts = memo[key].posts.concat([file]);
                     assign(files[file.key], { tags });
                 });
@@ -44,7 +45,7 @@ module.exports = function(opts) {
                 Object.assign({}, { path: key }, tags[key])
             ), []);
 
-        metalsmith.metadata().taglist = tagsArray
+        metalsmith.metadata()[options.listName] = tagsArray
             .reduce((memo, tag) => memo.concat(
                 Object.assign({}, tag, { count: tag.posts.length })
             ), [])

@@ -1,7 +1,5 @@
 .DS_Store
 .idea
-/.gists/
 /node_modules/
 npm-debug.log
-/build/
-/src/content/amps/
+dist/
